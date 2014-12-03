@@ -97,7 +97,17 @@ class ShellModule(object):
         # 0.  This logic is added to the end of the cmd at the bottom of this
         # function.
 
-        test = "rc=flag; [ -r \"%(p)s\" ] || rc=2; [ -f \"%(p)s\" ] || rc=1; [ -d \"%(p)s\" ] && rc=3; %(i)s -V 2>/dev/null || rc=4; [ x\"$rc\" != \"xflag\" ] && echo \"${rc}  %(p)s\" && exit 0" % dict(p=path, i=python_interp)
+        test = ("rc=flag; " # Sentinel
+                "[ -r \"%(p)s\" ] || rc=2; " # rc=2 if not readable
+                "[ -f \"%(p)s\" ] || rc=1; " # rc=1 if not a file
+                "[ -d \"%(p)s\" ] && rc=3; " # rc=3 if a directory
+                # Return early for any of the above errors
+                # So that an error with python won't cause
+                # an existence or readability check to fail
+                # and give a misleading error
+                "[ x\"$rc\" != \"xflag\" ] && echo \"${rc}  %(p)s\" && exit 0; "
+                "%(i)s -V 2>/dev/null || rc=4; " # rc=4 if python fails
+                "[ x\"$rc\" != \"xflag\" ] && echo \"${rc}  %(p)s\" && exit 0 ") % dict(p=path, i=python_interp)
         csums = [
             "(%s -c 'import hashlib; print(hashlib.sha1(open(\"%s\", \"rb\").read()).hexdigest())' 2>/dev/null)" % (python_interp, path),      # Python > 2.4 (including python3)
             "(%s -c 'import sha; print(sha.sha(open(\"%s\", \"rb\").read()).hexdigest())' 2>/dev/null)" % (python_interp, path),        # Python == 2.4
